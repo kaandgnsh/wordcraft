@@ -120,7 +120,7 @@ pub fn can_encrypt(name: &str) -> bool {
 /// Finish a document just read from a file: never leave it empty, and bring its unlocked
 /// `DATE`/`TIME` fields up to now the way Word does on open (see
 /// [`crate::cmd::references::refresh_date_fields`]).
-fn opened(doc: &mut Document) {
+pub(crate) fn opened(doc: &mut Document) {
     doc.ensure_nonempty();
     crate::cmd::references::refresh_date_fields(doc);
 }

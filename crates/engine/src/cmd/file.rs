@@ -67,7 +67,7 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("file.new", "New", "File", new).key("Mod+N").params(r#"{"template"?: "blank|sample|letter|resume|report"}"#).pure(),
         CommandSpec::new("file.open", "Open", "File", open)
             .key("Mod+O / Mod+F12 / Mod+Alt+F2")
-            .params(r#"{"path": string, "data"?: base64 (the file's bytes; `path` then only names it), "password"?: string (for a password-protected Word document)}"#)
+            .params(r#"{"path": string, "data"?: base64 (the file's bytes; `path` then only names it), "password"?: string (for a password-protected Word document or PDF), "pages"?: "2-3, 5" (a PDF's pages to open, 1-based; default all)} — a PDF is converted to an editable document; the result's `converted` then gives {from: "pdf", pages (the PDF's page count), imageOnlyPages (0-based: scans, without text), truncatedPages (0-based: text may be missing)}"#)
             .pure(),
         CommandSpec::new("file.save", "Save", "File", save)
             .key("Mod+S / Shift+F12 / Alt+Shift+F2")
@@ -211,17 +211,29 @@ fn open(s: &mut Session, v: &Value) -> CmdResult {
         return sel_result(s);
     };
     let password = p::str(v, "password");
+    let pages = p::str(v, "pages");
+    // A PDF is converted (PDF Reflow); what that left out goes back in the result.
+    let mut converted = None;
+    let mut pdf = |bytes: &[u8]| -> Result<(wordcraft_doc::Document, bool), CmdError> {
+        let (doc, report) = crate::io_pdf::open_pdf_pages(path, bytes, password, pages).map_err(CmdError::Failed)?;
+        converted = Some(report);
+        Ok((doc, false))
+    };
     let (mut doc, encrypted) = if let Some(data) = p::str(v, "data") {
         let bytes = super::insert::base64_decode(data).ok_or_else(|| CmdError::Params("bad base64".into()))?;
         // An empty file (File Explorer's New › Microsoft Word Document makes one) opens as a new
         // blank document that saves back to it (#1384).
         if bytes.is_empty() {
             (normal_document(s), false)
+        } else if crate::io_pdf::is_pdf(&bytes) || path.to_ascii_lowercase().ends_with(".pdf") {
+            pdf(&bytes)?
         } else {
             crate::io::open_bytes_in(path, &bytes, password, &s.region()).map_err(CmdError::Failed)?
         }
     } else if crate::io::is_empty_file(std::path::Path::new(path)) {
         (normal_document(s), false)
+    } else if let Some(bytes) = crate::io_pdf::read_if_pdf(path).map_err(CmdError::Failed)? {
+        pdf(&bytes)?
     } else {
         crate::io::open_path_in(std::path::Path::new(path), password, &s.region()).map_err(CmdError::Failed)?
     };
@@ -241,7 +253,11 @@ fn open(s: &mut Session, v: &Value) -> CmdResult {
     if encrypted {
         s.password = password.map(crate::io::Password::new);
     }
-    Ok(json!({"path": path, "paragraphs": s.doc.paragraph_count(), "words": s.doc.word_count(), "encrypted": encrypted}))
+    let mut out = json!({"path": path, "paragraphs": s.doc.paragraph_count(), "words": s.doc.word_count(), "encrypted": encrypted});
+    if let Some(r) = converted {
+        out["converted"] = json!({"from": "pdf", "pages": r.page_count, "imageOnlyPages": r.image_only_pages, "truncatedPages": r.truncated_pages});
+    }
+    Ok(out)
 }
 
 /// File › Info › Protect Document › Encrypt with Password: the password Word documents are saved

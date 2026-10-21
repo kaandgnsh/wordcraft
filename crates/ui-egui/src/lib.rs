@@ -12,6 +12,28 @@ fn system_theme(ctx: &egui::Context, desktop_dark: Option<bool>) -> Option<egui:
     ctx.system_theme().or_else(|| desktop_dark.map(|dark| if dark { egui::Theme::Dark } else { egui::Theme::Light }))
 }
 
+/// The status line after opening a PDF: `converted` is `file.open`'s report of it.
+fn pdf_notice(converted: &Value) -> String {
+    let list = |key: &str| -> Vec<String> {
+        let pages = converted.get(key).and_then(Value::as_array).cloned().unwrap_or_default();
+        pages.iter().filter_map(Value::as_u64).map(|p| (p + 1).to_string()).collect()
+    };
+    let shown = |pages: Vec<String>| if pages.len() > 6 { format!("{}…", pages[..6].join(", ")) } else { pages.join(", ") };
+    let n = converted.get("pages").and_then(Value::as_u64).unwrap_or(0).to_string();
+    let mut msg = i18n::fmt(tl!("Converted from PDF ({n} pages): the layout may differ from the original"), &[("n", &n)]);
+    let scans = list("imageOnlyPages");
+    if !scans.is_empty() {
+        let note = i18n::fmt(tl!("pages {pages} are pictures without text (scans) — OCR can recognize their words"), &[("pages", &shown(scans))]);
+        msg = format!("{msg}; {note}");
+    }
+    let cut = list("truncatedPages");
+    if !cut.is_empty() {
+        let note = i18n::fmt(tl!("some text on pages {pages} may be missing"), &[("pages", &shown(cut))]);
+        msg = format!("{msg}; {note}");
+    }
+    msg
+}
+
 /// An English UI string in the current interface language ([`i18n::t`]).
 #[macro_export]
 macro_rules! tl {
@@ -902,6 +924,13 @@ impl WordApp {
         // Check Accessibility shows its findings in the Accessibility pane, kept up to date there.
         if id == "file.accessibility" && r.is_ok() {
             self.session.view.accessibility_pane = true;
+        }
+        // A PDF opened as a document says it was converted, and what that couldn't bring over.
+        if id == "file.open"
+            && let Ok(v) = &r
+            && let Some(c) = v.get("converted")
+        {
+            self.status(pdf_notice(c));
         }
         // Match Fields and Check for Errors show what they found.
         if let Ok(v) = &r
@@ -2700,6 +2729,16 @@ mod tests {
 
     fn mod_key(key: egui::Key) -> egui::Event {
         egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND }
+    }
+
+    /// Opening a PDF says it was converted and names the scanned pages, which need OCR.
+    #[test]
+    fn opening_a_pdf_says_it_was_converted() {
+        assert_eq!(pdf_notice(&json!({"from": "pdf", "pages": 3})), "Converted from PDF (3 pages): the layout may differ from the original");
+        let msg = pdf_notice(&json!({"from": "pdf", "pages": 9, "imageOnlyPages": [1, 2], "truncatedPages": [8]}));
+        assert!(msg.contains("pages 2, 3 are pictures") && msg.contains("OCR") && msg.contains("pages 9 may be missing"), "{msg}");
+        let many = pdf_notice(&json!({"pages": 20, "imageOnlyPages": (0..20).collect::<Vec<_>>()}));
+        assert!(many.contains("1, 2, 3, 4, 5, 6…"), "{many}");
     }
 
     /// Issue #14: Mod+- (optional hyphen) also zoomed the whole window out, so it read as "zoom out".

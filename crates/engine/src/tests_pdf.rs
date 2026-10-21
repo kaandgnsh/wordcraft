@@ -143,3 +143,54 @@ fn hostile_pdf_never_panics() {
         let _ = open_bytes("bad.pdf", &v);
     }
 }
+
+#[test]
+fn open_pdf_pages_param() {
+    let path = tmp("three.pdf", &three_pages());
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    let r = run(&mut s, "file.open", json!({"path": path.to_str().unwrap(), "pages": "2-3"}));
+    let t = text(&s.doc);
+    assert!(!t.contains("Page one text") && t.contains("Page two text") && t.contains("Page three text"), "{t:?}");
+    assert_eq!(r["converted"]["pages"], json!(3), "{r}");
+}
+
+#[test]
+fn open_pdf_bad_pages() {
+    let path = tmp("bad-pages.pdf", &three_pages());
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    let e = s.run("file.open", &json!({"path": path.to_str().unwrap(), "pages": "7"})).unwrap_err().to_string();
+    assert!(e.contains('7') && e.contains('3'), "{e}");
+}
+
+#[test]
+fn insert_text_from_pdf() {
+    let path = tmp("insert.pdf", &heading_pdf());
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Before\n"));
+    run(&mut s, "caret.docEnd", json!({}));
+    run(&mut s, "insert.textFromFile", json!({"path": path.to_str().unwrap()}));
+    let t = text(&s.doc);
+    assert!(t.starts_with("Before") && t.contains("The body text of the report."), "{t:?}");
+}
+
+#[test]
+fn open_pdf_reports_conversion() {
+    let scan = pdf(&["BT /F1 11 Tf 72 760 Td (Text page) Tj ET", "q 400 0 0 600 72 72 cm 0 0 1 1 re f Q"]);
+    let path = tmp("report.pdf", &scan);
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    let r = run(&mut s, "file.open", json!({"path": path.to_str().unwrap()}));
+    assert_eq!(r["converted"]["from"], json!("pdf"), "{r}");
+    assert_eq!(r["converted"]["pages"], json!(2), "{r}");
+    // A Word file reports no conversion.
+    let docx = tmp("plain.docx", &save_bytes("plain.docx", &wordcraft_doc::Document::from_text("x\n")).unwrap());
+    let r = run(&mut s, "file.open", json!({"path": docx.to_str().unwrap()}));
+    assert!(r.get("converted").is_none(), "{r}");
+}
+
+#[test]
+fn insert_text_from_pdf_pages() {
+    let path = tmp("insert-pages.pdf", &three_pages());
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    run(&mut s, "insert.textFromFile", json!({"path": path.to_str().unwrap(), "pages": "3"}));
+    let t = text(&s.doc);
+    assert!(t.contains("Page three text") && !t.contains("Page one text"), "{t:?}");
+}
