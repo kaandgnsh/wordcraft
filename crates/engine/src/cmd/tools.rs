@@ -410,6 +410,18 @@ fn autocorrect_options(s: &mut Session, v: &Value) -> CmdResult {
     }))
 }
 
+/// `tools.ocrModels`: are the text recognition models installed, and where do they go.
+#[cfg(not(target_arch = "wasm32"))]
+fn ocr_models(_s: &mut Session, _v: &Value) -> CmdResult {
+    let found = crate::io_pdf::ocr_models().and_then(|m| m.detection.parent().map(|p| p.display().to_string()));
+    Ok(json!({"installed": found.is_some(), "path": found, "folder": crate::io_pdf::models_folder().display().to_string()}))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn ocr_models(_s: &mut Session, _v: &Value) -> CmdResult {
+    Ok(json!({"installed": false, "folder": "ocr-models"}))
+}
+
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec::new("edit.repeat", "Repeat", "Quick Access Toolbar", |s, _| {
@@ -432,6 +444,9 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"name"?: string} (call again to stop)"#)
         .pure(),
+        CommandSpec::new("tools.ocrModels", "Text Recognition Models", "File › Options › Advanced", ocr_models)
+            .params(r#"{} → {installed: bool, path?: the folder they were found in, folder: where to put them} — scanned PDF pages are read when the models (text-detection.rten, text-recognition.rten) are installed"#)
+            .pure(),
         CommandSpec::new("tools.macros", "Macros", "View › Macros", macros)
             .key("Alt+F8")
             .params(r#"{"run"?: name, "define"?: {"name": string, "steps": [{"command", "params"}]}, "delete"?: name}"#)

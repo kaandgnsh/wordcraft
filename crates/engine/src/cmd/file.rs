@@ -67,7 +67,7 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("file.new", "New", "File", new).key("Mod+N").params(r#"{"template"?: "blank|sample|letter|resume|report"}"#).pure(),
         CommandSpec::new("file.open", "Open", "File", open)
             .key("Mod+O / Mod+F12 / Mod+Alt+F2")
-            .params(r#"{"path": string, "data"?: base64 (the file's bytes; `path` then only names it), "password"?: string (for a password-protected Word document or PDF), "pages"?: "2-3, 5" (a PDF's pages to open, 1-based; default all)} — a PDF is converted to an editable document; the result's `converted` then gives {from: "pdf", pages (the PDF's page count), imageOnlyPages (0-based: scans, without text), truncatedPages (0-based: text may be missing)}"#)
+            .params(r#"{"path": string, "data"?: base64 (the file's bytes; `path` then only names it), "password"?: string (for a password-protected Word document or PDF), "pages"?: "2-3, 5" (a PDF's pages to open, 1-based; default all)} — a PDF is converted to an editable document; the result's `converted` then gives {from: "pdf", pages (the PDF's page count), imageOnlyPages (0-based: scans, without text), truncatedPages (0-based: text may be missing), ocrPages (0-based: read from their pictures; see tools.ocrModels), ocrModels? ({installed, folder}, with unread scans)}"#)
             .pure(),
         CommandSpec::new("file.save", "Save", "File", save)
             .key("Mod+S / Shift+F12 / Alt+Shift+F2")
@@ -255,7 +255,13 @@ fn open(s: &mut Session, v: &Value) -> CmdResult {
     }
     let mut out = json!({"path": path, "paragraphs": s.doc.paragraph_count(), "words": s.doc.word_count(), "encrypted": encrypted});
     if let Some(r) = converted {
-        out["converted"] = json!({"from": "pdf", "pages": r.page_count, "imageOnlyPages": r.image_only_pages, "truncatedPages": r.truncated_pages});
+        out["converted"] = json!({"from": "pdf", "pages": r.page_count, "imageOnlyPages": r.image_only_pages, "truncatedPages": r.truncated_pages, "ocrPages": r.ocr_pages});
+        // Scans left unread: whether the text recognition models are installed, and where they go.
+        #[cfg(not(target_arch = "wasm32"))]
+        if !r.image_only_pages.is_empty() {
+            out["converted"]["ocrModels"] =
+                json!({"installed": crate::io_pdf::ocr_models().is_some(), "folder": crate::io_pdf::models_folder().display().to_string()});
+        }
     }
     Ok(out)
 }

@@ -194,3 +194,64 @@ fn insert_text_from_pdf_pages() {
     let t = text(&s.doc);
     assert!(t.contains("Page three text") && !t.contains("Page one text"), "{t:?}");
 }
+
+/// A one-page PDF whose page is a picture of text: `tests/data/scan.jpg` (see ATTRIBUTION.md),
+/// 1191×561 pixels drawn at 595.5×280.5 points.
+#[cfg(not(target_arch = "wasm32"))]
+fn scan_pdf() -> Vec<u8> {
+    let jpg: &[u8] = include_bytes!("../tests/data/scan.jpg");
+    let content = "q 595.5 0 0 280.5 0 0 cm /Im0 Do Q";
+    let mut objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.5 280.5] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>".to_vec(),
+        format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()).into_bytes(),
+    ];
+    let mut image = format!("<< /Type /XObject /Subtype /Image /Width 1191 /Height 561 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>\nstream\n", jpg.len()).into_bytes();
+    image.extend_from_slice(jpg);
+    image.extend_from_slice(b"\nendstream");
+    objs.push(image);
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_scanned_pdf_is_read_with_the_models() {
+    if crate::io_pdf::ocr_models().is_none() {
+        eprintln!("skipped: no text recognition models (see tools.ocrModels)");
+        return;
+    }
+    let path = tmp("scan.pdf", &scan_pdf());
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    let r = run(&mut s, "file.open", json!({"path": path.to_str().unwrap()}));
+    assert_eq!(r["converted"]["ocrPages"], json!([0]), "{r}");
+    assert_eq!(r["converted"]["imageOnlyPages"], json!([]), "{r}");
+    let t = text(&s.doc);
+    assert!(t.contains("HELLO WORLD") && t.contains("lazy dog"), "{t:?}");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn models_are_looked_for_and_their_folder_named() {
+    let empty = std::env::temp_dir().join(format!("wordcraft-no-models-{}", std::process::id()));
+    std::fs::create_dir_all(&empty).unwrap();
+    assert!(crate::io_pdf::models_in(std::slice::from_ref(&empty)).is_none());
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    let r = run(&mut s, "tools.ocrModels", json!({}));
+    assert!(r["folder"].as_str().is_some_and(|f| f.contains("ocr-models")), "{r}");
+    assert!(r["installed"].is_boolean(), "{r}");
+}

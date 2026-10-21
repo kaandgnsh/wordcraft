@@ -11,6 +11,8 @@ pub struct PdfReport {
     pub truncated_pages: Vec<usize>,
     /// Pages (0-based) with pictures but no text: scans, whose words need text recognition.
     pub image_only_pages: Vec<usize>,
+    /// Pages (0-based) whose words were recognised from their picture.
+    pub ocr_pages: Vec<usize>,
 }
 
 /// Open the PDF in `bytes` (named `name`) as a document: `pages` (0-based) only, when given. The
@@ -20,9 +22,24 @@ pub struct PdfReport {
 pub(crate) fn open_pdf(name: &str, bytes: &[u8], password: Option<&str>, pages: Option<&[usize]>) -> Result<(Document, PdfReport), String> {
     use pdfcraft_office::{Options, Target};
     let opts = Options { password: password.map(str::to_owned), pages: pages.map(<[usize]>::to_vec), title: None };
-    let out = pdfcraft_office::convert(bytes, Target::Docx, &opts).map_err(|e| message(name, e))?;
+    let mut out = pdfcraft_office::convert(bytes, Target::Docx, &opts).map_err(|e| message(name, e))?;
+    // Scans are read when the text recognition models are installed.
+    #[cfg(not(target_arch = "wasm32"))]
+    if !out.image_only_pages.is_empty()
+        && let Some(ocr) = ocr()
+    {
+        out = pdfcraft_office::convert_with_ocr(bytes, Target::Docx, &opts, ocr).map_err(|e| message(name, e))?;
+    }
     let doc = wordcraft_docx::read(&out.bytes).map_err(|e| format!("{name}: the converted PDF could not be read ({e})"))?;
-    Ok((doc, PdfReport { page_count: out.page_count, truncated_pages: out.truncated_pages, image_only_pages: out.image_only_pages }))
+    Ok((
+        doc,
+        PdfReport {
+            page_count: out.page_count,
+            truncated_pages: out.truncated_pages,
+            image_only_pages: out.image_only_pages,
+            ocr_pages: out.ocr_pages,
+        },
+    ))
 }
 
 /// [`open_pdf`] of the pages named like `2-3, 5` (1-based; all when `pages` is `None` or
@@ -55,6 +72,62 @@ pub(crate) fn read_if_pdf(path: &str) -> Result<Option<Vec<u8>>, String> {
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn read_if_pdf(_path: &str) -> Result<Option<Vec<u8>>, String> {
     Ok(None)
+}
+
+/// The folder WordCraft keeps the text recognition models in, per user: `ocr-models` in the
+/// app's data folder (`~/.local/share/wordcraft`, `~/Library/Application Support/WordCraft`,
+/// `%LOCALAPPDATA%\WordCraft`).
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn models_folder() -> std::path::PathBuf {
+    use std::path::PathBuf;
+    let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let home = var("HOME").unwrap_or_default();
+    let base = if cfg!(windows) {
+        var("LOCALAPPDATA").or_else(|| var("APPDATA")).unwrap_or(home).join("WordCraft")
+    } else if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/WordCraft")
+    } else {
+        var("XDG_DATA_HOME").unwrap_or_else(|| home.join(".local/share")).join("wordcraft")
+    };
+    base.join("ocr-models")
+}
+
+/// Where the models are looked for, in order: `WORDCRAFT_OCR_MODELS`, [`models_folder`], then
+/// PdfCraft's (`PDFCRAFT_MODELS`, its installed packages, a source tree beside this one).
+#[cfg(not(target_arch = "wasm32"))]
+fn model_dirs() -> Vec<std::path::PathBuf> {
+    use std::path::PathBuf;
+    let mut dirs: Vec<PathBuf> = std::env::var_os("WORDCRAFT_OCR_MODELS").filter(|v| !v.is_empty()).map(PathBuf::from).into_iter().collect();
+    dirs.push(models_folder());
+    if let Some(home) = std::env::var_os("HOME").filter(|v| !v.is_empty()) {
+        dirs.push(PathBuf::from(home).join(".local/share/pdfcraft/models"));
+    }
+    dirs.extend(["/usr/share/pdfcraft/models", "/usr/local/share/pdfcraft/models"].map(PathBuf::from));
+    dirs.extend(pdfcraft_ocr::Models::search_dirs());
+    dirs
+}
+
+/// The models in the first of `dirs` that has both files.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn models_in(dirs: &[std::path::PathBuf]) -> Option<pdfcraft_ocr::Models> {
+    dirs.iter().find_map(|d| pdfcraft_ocr::Models::in_dir(d))
+}
+
+/// The installed text recognition models, if any.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn ocr_models() -> Option<pdfcraft_ocr::Models> {
+    models_in(&model_dirs())
+}
+
+/// The recogniser, loaded once (it takes a moment) the first time a scan is opened.
+#[cfg(not(target_arch = "wasm32"))]
+fn ocr() -> Option<&'static pdfcraft_ocr::Ocr> {
+    static OCR: std::sync::OnceLock<Option<pdfcraft_ocr::Ocr>> = std::sync::OnceLock::new();
+    OCR.get_or_init(|| {
+        let models = ocr_models()?;
+        pdfcraft_ocr::Ocr::load(&models).inspect_err(|e| log::warn!("text recognition: {e}")).ok()
+    })
+    .as_ref()
 }
 
 /// A conversion error as Open reports it: the password texts the `.docx` reader gives, other

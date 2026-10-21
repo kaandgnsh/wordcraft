@@ -21,9 +21,23 @@ fn pdf_notice(converted: &Value) -> String {
     let shown = |pages: Vec<String>| if pages.len() > 6 { format!("{}…", pages[..6].join(", ")) } else { pages.join(", ") };
     let n = converted.get("pages").and_then(Value::as_u64).unwrap_or(0).to_string();
     let mut msg = i18n::fmt(tl!("Converted from PDF ({n} pages): the layout may differ from the original"), &[("n", &n)]);
+    let read = list("ocrPages");
+    if !read.is_empty() {
+        let note = i18n::fmt(tl!("pages {pages} were read from their pictures (OCR): check the text"), &[("pages", &shown(read))]);
+        msg = format!("{msg}; {note}");
+    }
     let scans = list("imageOnlyPages");
     if !scans.is_empty() {
-        let note = i18n::fmt(tl!("pages {pages} are pictures without text (scans) — OCR can recognize their words"), &[("pages", &shown(scans))]);
+        let models = converted.get("ocrModels");
+        let folder =
+            models.filter(|m| m.get("installed").and_then(Value::as_bool) == Some(false)).and_then(|m| m.get("folder")).and_then(Value::as_str);
+        let note = match folder {
+            Some(folder) => i18n::fmt(
+                tl!("pages {pages} are pictures without text (scans) — to read their words, put the text recognition models in {folder}"),
+                &[("pages", &shown(scans)), ("folder", folder)],
+            ),
+            None => i18n::fmt(tl!("pages {pages} are pictures without text (scans) — OCR can recognize their words"), &[("pages", &shown(scans))]),
+        };
         msg = format!("{msg}; {note}");
     }
     let cut = list("truncatedPages");
@@ -2739,6 +2753,14 @@ mod tests {
         assert!(msg.contains("pages 2, 3 are pictures") && msg.contains("OCR") && msg.contains("pages 9 may be missing"), "{msg}");
         let many = pdf_notice(&json!({"pages": 20, "imageOnlyPages": (0..20).collect::<Vec<_>>()}));
         assert!(many.contains("1, 2, 3, 4, 5, 6…"), "{many}");
+        // Read by text recognition: say so, it may need checking.
+        let read = pdf_notice(&json!({"pages": 2, "ocrPages": [0, 1]}));
+        assert!(read.contains("pages 1, 2 were read from their pictures (OCR)"), "{read}");
+        // Scans without the models: where to put them.
+        let missing = pdf_notice(
+            &json!({"pages": 1, "imageOnlyPages": [0], "ocrModels": {"installed": false, "folder": "/home/u/.local/share/wordcraft/ocr-models"}}),
+        );
+        assert!(missing.contains("/home/u/.local/share/wordcraft/ocr-models"), "{missing}");
     }
 
     /// Issue #14: Mod+- (optional hyphen) also zoomed the whole window out, so it read as "zoom out".

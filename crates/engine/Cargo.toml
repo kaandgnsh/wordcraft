@@ -35,6 +35,9 @@ js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = { workspace = true }
+# Text recognition of scanned PDF pages (desktop only; the models are separate files).
+pdfcraft-office = { workspace = true, features = ["ocr"] }
+pdfcraft-ocr = { workspace = true }
 
 [dev-dependencies]
 encoding_rs = { workspace = true }
