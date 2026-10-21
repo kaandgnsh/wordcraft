@@ -267,7 +267,11 @@ fn encrypt(s: &mut Session, v: &Value) -> CmdResult {
 }
 
 fn save(s: &mut Session, v: &Value) -> CmdResult {
-    let path = match p::str(v, "path").map(std::path::PathBuf::from).or_else(|| s.path.clone()) {
+    // A PDF opened here was converted (PDF Reflow): Save asks where to keep the document rather
+    // than overwrite the PDF with an export of it.
+    let opened_pdf = s.path.as_ref().and_then(|p| p.extension()).is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+    let explicit = p::str(v, "path").map(std::path::PathBuf::from);
+    let path = match explicit.or_else(|| s.path.clone().filter(|_| !opened_pdf)) {
         Some(p) => p,
         None => {
             s.ui_requests.push(json!({"open": "saveAs"}));

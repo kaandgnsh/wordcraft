@@ -11,6 +11,7 @@ pub mod cmd;
 pub mod file_access;
 pub mod io;
 mod io_ext;
+mod io_pdf;
 pub mod keymap;
 pub mod math_gallery;
 pub mod print;
@@ -171,6 +172,8 @@ mod tests;
 mod tests_bidi;
 #[cfg(test)]
 mod tests_fonts;
+#[cfg(test)]
+mod tests_pdf;
 #[cfg(test)]
 mod tests_revision_checks;
 #[cfg(test)]

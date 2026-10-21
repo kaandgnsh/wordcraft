@@ -1841,14 +1841,15 @@ impl WordApp {
         r
     }
 
-    /// These paths have readers but no writer, so an interactive save needs another format.
+    /// These paths have readers but no writer, or (PDF) were converted on opening, so an
+    /// interactive save needs another format.
     fn legacy_word_path(&self) -> bool {
         self.session
             .path
             .as_ref()
             .and_then(|p| p.extension())
             .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("doc") || e.eq_ignore_ascii_case("dot"))
+            .is_some_and(|e| e.eq_ignore_ascii_case("doc") || e.eq_ignore_ascii_case("dot") || e.eq_ignore_ascii_case("pdf"))
     }
 
     /// The name Save suggests: the open file's own Word format (so a .docm keeps its macros),

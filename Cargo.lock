@@ -2337,6 +2337,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
+name = "md-5"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69b6441f590336821bb897fb28fc622898ccceb1d6cea3fde5ea86b090c4de98"
+dependencies = [
+ "cfg-if",
+ "digest",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2883,7 +2893,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2925,6 +2935,116 @@ dependencies = [
  "itoa",
  "memchr",
  "ryu",
+]
+
+[[package]]
+name = "pdfcraft-annot"
+version = "0.10.1"
+dependencies = [
+ "pdfcraft-cos",
+ "pdfcraft-fonts",
+ "pdfcraft-model",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "pdfcraft-content"
+version = "0.10.1"
+dependencies = [
+ "pdfcraft-cos",
+]
+
+[[package]]
+name = "pdfcraft-cos"
+version = "0.10.1"
+dependencies = [
+ "pdfcraft-crypt",
+ "pdfcraft-filters",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "pdfcraft-create"
+version = "0.10.1"
+dependencies = [
+ "encoding_rs",
+ "image",
+ "pdfcraft-cos",
+ "pdfcraft-fonts",
+ "pdfcraft-model",
+ "png",
+ "thiserror 2.0.21",
+ "tiff",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "pdfcraft-crypt"
+version = "0.10.1"
+dependencies = [
+ "aes",
+ "md-5",
+ "sha2",
+ "stringprep",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "pdfcraft-edit"
+version = "0.10.1"
+dependencies = [
+ "kurbo",
+ "pdfcraft-annot",
+ "pdfcraft-content",
+ "pdfcraft-cos",
+ "pdfcraft-fonts",
+ "pdfcraft-model",
+ "thiserror 2.0.21",
+ "unicode-bidi",
+]
+
+[[package]]
+name = "pdfcraft-export"
+version = "0.10.1"
+dependencies = [
+ "flate2",
+]
+
+[[package]]
+name = "pdfcraft-filters"
+version = "0.10.1"
+dependencies = [
+ "flate2",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "pdfcraft-fonts"
+version = "0.10.1"
+dependencies = [
+ "harfrust 0.12.0",
+ "pdfcraft-cos",
+ "skrifa 0.44.0",
+ "unicode-bidi",
+]
+
+[[package]]
+name = "pdfcraft-model"
+version = "0.10.1"
+dependencies = [
+ "pdfcraft-cos",
+]
+
+[[package]]
+name = "pdfcraft-office"
+version = "0.10.1"
+dependencies = [
+ "pdfcraft-cos",
+ "pdfcraft-create",
+ "pdfcraft-edit",
+ "pdfcraft-export",
+ "pdfcraft-model",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -3846,6 +3966,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
 
 [[package]]
+name = "stringprep"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b4df3d392d81bd458a8a621b8bffbd2302a12ffe288a9d931670948749463b1"
+dependencies = [
+ "unicode-bidi",
+ "unicode-normalization",
+ "unicode-properties",
+]
+
+[[package]]
 name = "subsetter"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4007,6 +4138,12 @@ dependencies = [
  "displaydoc",
  "zerovec",
 ]
+
+[[package]]
+name = "tinyvec"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "tokio"
@@ -4187,6 +4324,15 @@ name = "unicode-linebreak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b09c83c3c29d37506a3e260c08c03743a6bb66a9cd432c6934ab501a190571f"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-properties"
@@ -5240,6 +5386,7 @@ dependencies = [
  "image",
  "js-sys",
  "log",
+ "pdfcraft-office",
  "regex",
  "regex-automata",
  "serde",

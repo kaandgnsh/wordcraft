@@ -20,6 +20,7 @@ pub const OPEN_EXTS: &[&str] = &[
     "htm",
     "rtf",
     "odt",
+    "pdf",
     "tex",
     "latex",
     "ltx",
@@ -183,6 +184,13 @@ fn load_embedded_fonts(doc: &Document) {
 
 fn read_bytes(name: &str, bytes: &[u8], password: Option<&str>, page: &wordcraft_doc::SectionProps) -> Result<(Document, bool), String> {
     let ext = ext_of(name);
+    // A PDF by its header, whatever its name; a file named .pdf that isn't one is refused rather
+    // than shown as text.
+    if crate::io_pdf::is_pdf(bytes) || ext == "pdf" {
+        let (mut doc, _) = crate::io_pdf::open_pdf(name, bytes, password, None)?;
+        opened(&mut doc);
+        return Ok((doc, false));
+    }
     if matches!(ext.as_str(), "docx" | "docm" | "dotx" | "dotm" | "doc" | "dot") && wordcraft_docx::is_encrypted(bytes) {
         let mut doc = wordcraft_docx::read_with_password(bytes, password).map_err(|e| e.to_string())?;
         opened(&mut doc);
