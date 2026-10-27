@@ -2066,9 +2066,10 @@ impl WordApp {
         }
         if !self.recovery_seen && self.session.recovery_ready() {
             self.recovery_seen = true;
+            // Like Word, found copies are offered without covering the document: File ›
+            // Recover lists them.
             if !self.session.recovery_documents().is_empty() && !self.session.dirty {
-                self.ui.backstage = true;
-                self.ui.backstage_page = "recover".into();
+                self.status(tl!("Unsaved work can be recovered: File › Recover"));
             }
         }
         if let Some(wait) = self.session.recovery_wait() {

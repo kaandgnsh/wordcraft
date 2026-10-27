@@ -633,10 +633,7 @@ mod tests {
         let (app, root) = recovery_app();
         let mut h = recovery_harness(app);
         settle_recovery(&mut h);
-        assert!(h.state().ui.backstage && h.state().ui.backstage_page == "recover");
-        h.get_by_label("Continue without restoring").click();
-        h.run_steps(4);
-        assert!(!h.state().ui.backstage);
+        assert!(!h.state().ui.backstage, "found copies must not cover the document at startup");
         assert_eq!(h.state().session.recovery_documents().len(), 1);
         h.state_mut().run("file.recover", json!({})).unwrap();
         h.run_steps(4);
