@@ -705,6 +705,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono"
+version = "0.4.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "cipher"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2974,7 +2983,7 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-annot"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "pdfcraft-cos",
  "pdfcraft-fonts",
@@ -2984,15 +2993,16 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-content"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "pdfcraft-cos",
 ]
 
 [[package]]
 name = "pdfcraft-cos"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
+ "chrono",
  "pdfcraft-crypt",
  "pdfcraft-filters",
  "thiserror 2.0.21",
@@ -3000,7 +3010,7 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-create"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "encoding_rs",
  "image",
@@ -3015,7 +3025,7 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-crypt"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "aes",
  "md-5",
@@ -3026,7 +3036,7 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-edit"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "kurbo",
  "pdfcraft-annot",
@@ -3040,14 +3050,14 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-export"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "flate2",
 ]
 
 [[package]]
 name = "pdfcraft-filters"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "flate2",
  "thiserror 2.0.21",
@@ -3055,7 +3065,7 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-fonts"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "harfrust 0.12.0",
  "pdfcraft-cos",
@@ -3065,14 +3075,14 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-model"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "pdfcraft-cos",
 ]
 
 [[package]]
 name = "pdfcraft-ocr"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "ocrs",
  "pdfcraft-fonts",
@@ -3082,7 +3092,7 @@ dependencies = [
 
 [[package]]
 name = "pdfcraft-office"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "image",
  "pdfcraft-cos",
